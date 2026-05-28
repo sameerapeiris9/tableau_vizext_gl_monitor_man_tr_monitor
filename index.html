@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Manual Transaction KPI Card</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --font:'Inter',-apple-system,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,.68,0,1.1);
+  --ease2:cubic-bezier(.16,1,.3,1);
+
+  /* amber/orange theme — manual = warning, not error */
+  --ac:      #d97706;   /* accent main */
+  --ac-dark: #92400e;   /* hero text */
+  --ac-mid:  #f59e0b;   /* divider gradient */
+  --ac-soft: #fde68a;   /* label text */
+  --ac-bg:   rgba(217,119,6,.1);
+  --ac-bdr:  rgba(217,119,6,.22);
+  /* zero = green */
+  --ok:      #15803d;
+  --ok-soft: #86efac;
+  --ok-bg:   rgba(22,163,74,.1);
+}
+
+html,body{
+  width:100%;height:100%;
+  background:radial-gradient(ellipse at 25% 35%,#fffbeb 0%,#f8fafc 45%,#fdf4ff 100%);
+  font-family:var(--font);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+#app{
+  width:calc(100% - 16px);
+  max-width:220px;
+  position:relative;
+}
+
+/* ════════════════════════════════
+   CARD — identical glass to suspense card
+════════════════════════════════ */
+#card{
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.7);
+  overflow:visible;
+  position:relative;
+  box-shadow:
+    0 2px 8px rgba(15,23,42,.06),
+    0 10px 32px rgba(15,23,42,.08),
+    inset 0 1px 0 rgba(255,255,255,.9);
+  transition:
+    box-shadow .3s var(--ease2),
+    transform .25s var(--ease2);
+  cursor:default;
+  animation:cardIn .7s var(--ease2) both;
+}
+@keyframes cardIn{
+  from{opacity:0;transform:translateY(18px) scale(.96)}
+  to{opacity:1;transform:none}
+}
+#card:hover{
+  box-shadow:
+    0 4px 16px rgba(15,23,42,.1),
+    0 24px 52px rgba(15,23,42,.13),
+    inset 0 1px 0 rgba(255,255,255,.9);
+  transform:translateY(-3px);
+}
+/* glass sheen */
+#card::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.22) 0%,transparent 55%);
+  border-radius:22px;pointer-events:none;
+}
+
+/* ── BODY ── */
+.body{
+  padding:16px 16px 14px;
+  position:relative;z-index:1;
+}
+/* body dims when overlay shows */
+#card:hover .body{opacity:0;transition:opacity .15s;}
+
+/* ── HEADER ROW ── */
+.hdr-row{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  margin-bottom:14px;
+}
+#card-hdr{
+  font-size:8px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;
+  color:#94a3b8;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;
+}
+
+/* warning badge — amber, pulses */
+.warn-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:7.5px;font-weight:700;
+  letter-spacing:.04em;
+  padding:2px 8px;border-radius:99px;
+  background:var(--ac-bg);
+  color:var(--ac);
+  border:0.5px solid var(--ac-bdr);
+  flex-shrink:0;
+  transition:all .3s;
+  animation:warnPulse 3s ease infinite;
+}
+@keyframes warnPulse{
+  0%,100%{background:rgba(217,119,6,.1);}
+  50%{background:rgba(217,119,6,.2);}
+}
+.warn-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--ac);flex-shrink:0;
+}
+/* green state when zero */
+.warn-badge.ok{
+  background:var(--ok-bg);color:var(--ok);
+  border-color:rgba(22,163,74,.22);
+  animation:none;
+}
+.warn-badge.ok .warn-dot{background:var(--ok);}
+
+/* ── HERO — transaction count ── */
+.hero{margin-bottom:4px;}
+#hero-val{
+  font-family:var(--mono);
+  font-size:32px;font-weight:700;
+  color:var(--ac-dark);
+  letter-spacing:-.04em;line-height:1;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  transition:color .3s;
+}
+#hero-lbl{
+  font-size:8px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ac-soft);
+  margin-top:4px;
+  transition:color .3s;
+}
+
+/* ── GRADIENT DIVIDER — amber ── */
+.divl{
+  height:1px;
+  background:linear-gradient(90deg,rgba(217,119,6,.18) 0%,transparent 100%);
+  margin:13px 0 12px;
+  transition:background .3s;
+}
+.divl.ok{background:linear-gradient(90deg,rgba(22,163,74,.15) 0%,transparent 100%);}
+
+/* ── METRICS ROW — 3 columns ── */
+.metrics{
+  display:grid;
+  grid-template-columns:1fr 0.5px 1fr 0.5px 1fr;
+  align-items:center;
+  gap:0;
+}
+.metric{
+  display:flex;flex-direction:column;gap:3px;
+}
+.metric:first-child{padding-right:8px;}
+.metric:nth-child(3){padding:0 8px;}
+.metric:last-child{padding-left:8px;}
+.m-sep{
+  background:rgba(148,163,184,.22);
+  width:0.5px;align-self:stretch;
+}
+.m-val{
+  font-family:var(--mono);
+  font-size:16px;font-weight:700;
+  color:#0f172a;
+  letter-spacing:-.02em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.m-lbl{
+  font-size:7px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#94a3b8;
+}
+.m-sub{
+  font-size:6.5px;font-weight:500;
+  color:#cbd5e1;margin-top:1px;line-height:1.2;
+}
+
+/* ════════════════════════════════
+   HOVER OVERLAY — fills card exactly
+════════════════════════════════ */
+#top5-panel{
+  position:absolute;
+  inset:0;
+  background:rgba(10,15,26,.96);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.1);
+  overflow:hidden;
+  opacity:0;pointer-events:none;
+  transform:scale(.96);
+  transform-origin:center center;
+  transition:
+    opacity .25s var(--ease2),
+    transform .25s var(--ease2);
+  z-index:20;
+  display:flex;flex-direction:column;
+}
+#card:hover #top5-panel{
+  opacity:1;transform:scale(1);pointer-events:auto;
+}
+
+/* panel header */
+.t5-head{
+  padding:12px 14px 9px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  flex-shrink:0;
+}
+.t5-title{
+  font-size:8.5px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.4);
+}
+.t5-badge{
+  font-size:8px;font-weight:700;
+  color:rgba(253,230,138,.85);
+  background:rgba(217,119,6,.22);
+  padding:2px 8px;border-radius:99px;
+}
+.t5-badge.ok{
+  color:rgba(134,239,172,.85);
+  background:rgba(22,163,74,.2);
+}
+
+/* scrollable list */
+#t5-list{flex:1;overflow-y:auto;overflow-x:hidden;}
+#t5-list::-webkit-scrollbar{width:3px;}
+#t5-list::-webkit-scrollbar-track{background:transparent;}
+#t5-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px;}
+
+/* list row */
+.t5-row{
+  display:grid;
+  grid-template-columns:22px 1fr auto;
+  gap:8px;align-items:center;
+  padding:7px 14px;
+  border-top:1px solid rgba(255,255,255,.04);
+  transition:background .15s;
+}
+.t5-row:hover{background:rgba(255,255,255,.05);}
+.t5-row:first-of-type{border-top:none;}
+
+/* rank medals */
+.rnk{
+  width:20px;height:20px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;font-family:var(--mono);
+  flex-shrink:0;
+}
+.r1{background:rgba(251,191,36,.18);color:#fbbf24;}
+.r2{background:rgba(148,163,184,.14);color:#94a3b8;}
+.r3{background:rgba(217,119,6,.18);color:#d97706;}
+.rn{background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);}
+
+/* row content */
+.t5-info{min-width:0;}
+.t5-acc{
+  font-size:10px;color:#e2e8f0;font-weight:600;
+  font-family:var(--mono);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:-.01em;
+}
+.t5-cc{
+  font-size:7.5px;color:rgba(255,255,255,.3);
+  margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.t5-cnt{
+  font-size:11px;font-weight:700;
+  font-family:var(--mono);
+  color:rgba(253,230,138,.9);
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.t5-cnt.ok{color:rgba(134,239,172,.9);}
+
+/* panel footer */
+.t5-foot{
+  padding:7px 14px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-top:1px solid rgba(255,255,255,.05);
+  flex-shrink:0;
+}
+.t5-foot-txt{
+  font-size:7px;color:rgba(255,255,255,.22);
+  letter-spacing:.04em;
+}
+
+/* empty state */
+.t5-empty{
+  padding:12px 14px;
+  font-size:9px;color:rgba(255,255,255,.25);
+  text-align:center;font-style:italic;line-height:1.5;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="card">
+
+    <!-- KPI body -->
+    <div class="body">
+
+      <div class="hdr-row">
+        <div id="card-hdr">Manual Transactions</div>
+        <div class="warn-badge" id="warn-badge">
+          <div class="warn-dot"></div>
+          <span id="warn-txt">Manual</span>
+        </div>
+      </div>
+
+      <!-- Hero: total transaction count -->
+      <div class="hero">
+        <div id="hero-val">—</div>
+        <div id="hero-lbl">Total Transactions</div>
+      </div>
+
+      <!-- Divider -->
+      <div class="divl" id="divl"></div>
+
+      <!-- 3 metrics: Transactions | Accounts | Cost Centres -->
+      <div class="metrics">
+        <div class="metric">
+          <div class="m-val" id="m-txn">—</div>
+          <div class="m-lbl">Entries</div>
+          <div class="m-sub">manual posts</div>
+        </div>
+        <div class="m-sep"></div>
+        <div class="metric">
+          <div class="m-val" id="m-acc">—</div>
+          <div class="m-lbl">Accounts</div>
+          <div class="m-sub">distinct</div>
+        </div>
+        <div class="m-sep"></div>
+        <div class="metric">
+          <div class="m-val" id="m-cc">—</div>
+          <div class="m-lbl">Cost Ctrs</div>
+          <div class="m-sub">distinct</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Hover overlay: top 5 -->
+    <div id="top5-panel">
+      <div class="t5-head">
+        <span class="t5-title">Top 5 by transactions</span>
+        <span class="t5-badge" id="t5-badge">—</span>
+      </div>
+      <div id="t5-list"></div>
+      <div class="t5-foot">
+        <span class="t5-foot-txt" id="t5-foot-l">Manual postings</span>
+        <span class="t5-foot-txt" id="t5-foot-r">—</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+(function(){
+
+var $=function(id){return document.getElementById(id);};
+var appEl=$('app');
+
+/* ── number format ── */
+function fmtN(n){
+  if(n===null||isNaN(n)) return '—';
+  var abs=Math.abs(n),s=n<0?'-':'';
+  if(abs>=1e9) return s+(abs/1e9).toFixed(2)+' B';
+  if(abs>=1e6) return s+(abs/1e6).toFixed(2)+' M';
+  if(abs>=1e3) return s+(abs/1e3).toFixed(1)+' K';
+  return s+Math.round(abs).toLocaleString('en-US');
+}
+
+/* ── hero animate ── */
+function animateHero(val){
+  var el=$('hero-val');
+  var abs=Math.abs(val),s=val<0?'-':'';
+  var end,dp,suf;
+  if(abs>=1e9){end=abs/1e9;dp=2;suf=' B';}
+  else if(abs>=1e6){end=abs/1e6;dp=2;suf=' M';}
+  else if(abs>=1e3){end=abs/1e3;dp=1;suf=' K';}
+  else{end=abs;dp=0;suf='';}
+  var dur=900,steps=50,step=0;
+  clearInterval(el._ct);
+  el._ct=setInterval(function(){
+    step++;
+    var t=1-Math.pow(1-step/steps,3);
+    el.textContent=s+(end*t).toFixed(dp)+suf;
+    if(step>=steps){clearInterval(el._ct);el.textContent=s+end.toFixed(dp)+suf;}
+  },dur/steps);
+}
+
+/* ── integer animate ── */
+function animateInt(el,target){
+  var dur=700,steps=40,step=0;
+  clearInterval(el._ct);
+  el._ct=setInterval(function(){
+    step++;
+    var t=1-Math.pow(1-step/steps,2.5);
+    el.textContent=Math.round(target*t).toLocaleString('en-US');
+    if(step>=steps){clearInterval(el._ct);el.textContent=Math.round(target).toLocaleString('en-US');}
+  },dur/steps);
+}
+
+/* ── responsive scale ── */
+function applyScale(w){
+  var heroSz=Math.min(34,Math.max(20,Math.round((w/220)*32)));
+  $('hero-val').style.fontSize=heroSz+'px';
+  var mSz=Math.min(18,Math.max(11,Math.round((w/220)*16)));
+  document.querySelectorAll('.m-val').forEach(function(e){e.style.fontSize=mSz+'px';});
+}
+if(window.ResizeObserver){
+  new ResizeObserver(function(e){applyScale(e[0].contentRect.width);}).observe(appEl);
+}
+window.addEventListener('resize',function(){applyScale(appEl.offsetWidth||220);});
+
+/* ── escape HTML ── */
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ── confirmed working data reader ── */
+async function getData(ws){
+  var rows=[],rdr=await ws.getSummaryDataReaderAsync(undefined,{ignoreSelection:true});
+  for(var i=0;i<rdr.pageCount;i++){
+    var pg=await rdr.getPageAsync(i);
+    pg.data.forEach(function(r){
+      var row={};pg.columns.forEach(function(c,idx){row[c.fieldName]=r[idx];});rows.push(row);
+    });
+  }
+  await rdr.releaseAsync();return rows;
+}
+async function getEnc(ws){
+  var spec=await ws.getVisualSpecificationAsync(),map={};
+  if(spec.activeMarksSpecificationIndex<0) return map;
+  spec.marksSpecifications[spec.activeMarksSpecificationIndex]
+      .encodings.forEach(function(e){map[e.id]=e.field;});
+  return map;
+}
+
+/* ── field helpers ── */
+function findKey(ef,rowKeys){
+  if(!ef) return null;
+  var nm=ef.name.toLowerCase();
+  for(var i=0;i<rowKeys.length;i++) if(rowKeys[i].toLowerCase()===nm) return rowKeys[i];
+  return null;
+}
+function autoFind(rowKeys,usedKeys,patterns){
+  for(var pi=0;pi<patterns.length;pi++)
+    for(var ki=0;ki<rowKeys.length;ki++){
+      if(usedKeys.indexOf(rowKeys[ki])>=0) continue;
+      if(rowKeys[ki].toLowerCase().indexOf(patterns[pi])>=0) return rowKeys[ki];
+    }
+  return null;
+}
+function dvNum(row,k){
+  if(!k||!row[k]) return null;
+  var dv=row[k];
+  var raw=dv.nativeValue!==undefined&&dv.nativeValue!==null?dv.nativeValue:dv.value;
+  var n=parseFloat(raw);return isNaN(n)?null:n;
+}
+function dvStr(row,k){
+  if(!k||!row[k]) return '';
+  var f=row[k].formattedValue;
+  return(f&&f!=='%null%'&&f!=='Null'&&f.trim()!=='')?f.trim():'';
+}
+
+/* ════════════════════════════════
+   RENDER
+════════════════════════════════ */
+function render(data,enc){
+  if(!data.length) return;
+  var rowKeys=Object.keys(data[0]);
+
+  var txnKey=findKey(enc.txn_count,rowKeys);
+  var accKey=findKey(enc.account,   rowKeys);
+  var ccKey =findKey(enc.cost_center,rowKeys);
+
+  /* auto-detect if not mapped */
+  var usedKeys=[txnKey,accKey,ccKey].filter(Boolean);
+  if(!txnKey) txnKey=autoFind(rowKeys,usedKeys,['count','txn','transaction','trn','no_of']);
+  if(!accKey) accKey=autoFind(rowKeys,usedKeys,['account_no','accountno','account','acct']);
+  if(!ccKey)  ccKey =autoFind(rowKeys,usedKeys,['cost_center','costcenter','cost centre','cc','centre']);
+
+  /* ══════════════════════════════
+     COUNTING LOGIC
+     - Total transactions  : SUM of txn_count across all rows
+     - Distinct accounts   : unique account_no values
+     - Distinct cost centres: unique cc values
+     - Per-account aggr for top 5: grouped by account, sum txn_count
+  ══════════════════════════════ */
+  var totalTxn=0;
+  var accSet={};
+  var ccSet={};
+  var accMap={};  /* acc → {acc, cc, txnCount} */
+
+  data.forEach(function(row){
+    var acc=dvStr(row,accKey);
+    var cc =dvStr(row,ccKey);
+    var cnt=dvNum(row,txnKey)||0;
+
+    totalTxn+=cnt;
+    if(acc) accSet[acc]=true;
+    if(cc)  ccSet[cc]=true;
+
+    /* group by account for top-5 */
+    var key=acc||'(unknown)';
+    if(!accMap[key]) accMap[key]={acc:acc||'—',cc:cc,txn:0,ccs:[]};
+    accMap[key].txn+=cnt;
+    if(cc&&accMap[key].ccs.indexOf(cc)<0) accMap[key].ccs.push(cc);
+  });
+
+  var distinctAccounts=Object.keys(accSet).length;
+  var distinctCC      =Object.keys(ccSet).length;
+
+  /* top 5 by transaction count */
+  var top5=Object.values(accMap)
+    .sort(function(a,b){return b.txn-a.txn;})
+    .slice(0,5);
+
+  /* ── zero state ── */
+  var isZero=totalTxn===0;
+
+  /* hero */
+  animateHero(totalTxn);
+  animateInt($('m-txn'),totalTxn);
+  animateInt($('m-acc'),distinctAccounts);
+  animateInt($('m-cc'), distinctCC);
+
+  /* colour theme: amber if non-zero, green if zero */
+  $('hero-val').style.color  =isZero?'#15803d':'#92400e';
+  $('hero-lbl').style.color  =isZero?'#86efac':'#fde68a';
+  $('divl').className        ='divl'+(isZero?' ok':'');
+
+  /* badge */
+  var badge=$('warn-badge');
+  badge.className='warn-badge'+(isZero?' ok':'');
+  $('warn-txt').textContent=isZero?'Clear':'Manual';
+  badge.querySelector('.warn-dot').style.background=isZero?'#15803d':'#d97706';
+
+  /* ── top-5 hover panel ── */
+  var listEl=$('t5-list');
+  listEl.innerHTML='';
+  var rankCls=['r1','r2','r3','rn','rn'];
+
+  var t5badge=$('t5-badge');
+  t5badge.textContent=fmtN(totalTxn)+' txns';
+  t5badge.className='t5-badge'+(isZero?' ok':'');
+
+  if(top5.length&&totalTxn>0){
+    top5.forEach(function(a,i){
+      var row=document.createElement('div');
+      row.className='t5-row';
+      var ccTxt=a.ccs.slice(0,3).join(' · ')+(a.ccs.length>3?' +'+(a.ccs.length-3)+' more':'');
+      var cntEl='<div class="t5-cnt'+(isZero?' ok':'')+'">'+fmtN(a.txn)+'</div>';
+      row.innerHTML=
+        '<div class="rnk '+rankCls[i]+'">'+(i+1)+'</div>'+
+        '<div class="t5-info">'+
+          '<div class="t5-acc">'+escH(a.acc)+'</div>'+
+          '<div class="t5-cc">'+escH(ccTxt||'—')+'</div>'+
+        '</div>'+
+        cntEl;
+      listEl.appendChild(row);
+    });
+    $('t5-foot-r').textContent=
+      distinctAccounts+' accts · '+distinctCC+' cost ctrs';
+    $('t5-foot-l').textContent=isZero?'All clear':'Manual postings';
+  } else if(isZero){
+    listEl.innerHTML='<div class="t5-empty">No manual transactions<br>— all postings are system-generated</div>';
+    $('t5-foot-r').textContent='';
+    $('t5-foot-l').textContent='All clear';
+  } else {
+    listEl.innerHTML='<div class="t5-empty">Drop Transaction Count,<br>Account No and Cost Centre<br>on the Marks card</div>';
+    $('t5-foot-r').textContent='';
+    $('t5-foot-l').textContent='Manual postings';
+  }
+
+  applyScale(appEl.offsetWidth||220);
+}
+
+/* ── confirmed working init ── */
+window.onload=tableau.extensions.initializeAsync().then(function(){
+  var ws=tableau.extensions.worksheetContent.worksheet;
+  var update=async function(){
+    var data=await getData(ws);
+    var enc =await getEnc(ws);
+    render(data,enc);
+  };
+  ws.addEventListener(tableau.TableauEventType.SummaryDataChanged,update);
+  update();
+});
+
+})();
+</script>
+</body>
+</html>
